@@ -393,7 +393,7 @@ def get_guppy_command(in_dir, out_dir, barcodes, model, detect_mid_strand_barcod
         guppy_command += ['--device', 'auto']
     if detect_mid_strand_barcodes:
         guppy_command += ['--detect_mid_strand_barcodes']
-        guppy_command += ['--min_score_mid_barcodes', min_score_mid_barcodes]
+        guppy_command += ['--min_score_mid_barcodes', str(min_score_mid_barcodes)]
     guppy_command += BASECALLING[model]
     guppy_command += BARCODING[barcodes]
     return guppy_command
