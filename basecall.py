@@ -81,6 +81,8 @@ def get_arguments():
                               "many minutes")
     options.add_argument('--detect_mid_strand_barcodes', action='store_true',
                          help='Search for barcodes through the entire length of the read')
+    options.add_argument('--min_score_mid_barcodes', type=int, required=False, default=40,
+                         help='Minimum score for a barcode to be detected in the middle of a read (default = 40)')
     options.add_argument('--cpu', action='store_true',
                          help='Use the CPU for basecalling (default: use the GPU)')
     options.add_argument('--trans_window', type=int, required=False, default=60,
@@ -109,7 +111,7 @@ def main():
 
             new_fast5s, all_fast5s = check_for_reads(args.batch_size, args.in_dir, args.out_dir)
             if new_fast5s:
-                basecall_reads(new_fast5s, args.barcodes, args.model, args.detect_mid_strand_barcodes, args.cpu, args.out_dir)
+                basecall_reads(new_fast5s, args.barcodes, args.model, args.detect_mid_strand_barcodes, args.min_score_mid_barcodes, args.cpu, args.out_dir)
                 summary_info(args.out_dir, args.barcodes, all_fast5s, args.trans_window)
                 minutes_since_last_read, waiting = 0.0, False
 
@@ -191,13 +193,13 @@ def print_waiting_message(waiting):
         print('\n\nWaiting for new reads (Ctrl-C to quit)', end='', flush=True)
 
 
-def basecall_reads(new_fast5s, barcodes, model, detect_mid_strand_barcodes, cpu, out_dir):
+def basecall_reads(new_fast5s, barcodes, model, detect_mid_strand_barcodes, min_score_mid_barcodes, cpu, out_dir):
     print_basecalling_message()
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_in = pathlib.Path(temp_dir) / 'in'
         temp_out = pathlib.Path(temp_dir) / 'out'
         copy_reads_to_temp_in(new_fast5s, temp_in)
-        guppy_command = get_guppy_command(temp_in, temp_out, barcodes, model, detect_mid_strand_barcodes, cpu)
+        guppy_command = get_guppy_command(temp_in, temp_out, barcodes, model, detect_mid_strand_barcodes, min_score_mid_barcodes, cpu)
         execute_with_output(guppy_command)
         merge_results(temp_out, out_dir, barcodes)
     add_to_already_basecalled(new_fast5s, out_dir)
@@ -383,7 +385,7 @@ def read_sequencing_summary(out_dir, columns):
     return data
 
 
-def get_guppy_command(in_dir, out_dir, barcodes, model, detect_mid_strand_barcodes, cpu):
+def get_guppy_command(in_dir, out_dir, barcodes, model, detect_mid_strand_barcodes, min_score_mid_barcodes, cpu):
     guppy_command = ['guppy_basecaller',
                      '--input_path', str(in_dir),
                      '--save_path', str(out_dir)]
@@ -391,6 +393,7 @@ def get_guppy_command(in_dir, out_dir, barcodes, model, detect_mid_strand_barcod
         guppy_command += ['--device', 'auto']
     if detect_mid_strand_barcodes:
         guppy_command += ['--detect_mid_strand_barcodes']
+        guppy_command += ['--min_score_mid_barcodes', min_score_mid_barcodes]
     guppy_command += BASECALLING[model]
     guppy_command += BARCODING[barcodes]
     return guppy_command
